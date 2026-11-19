@@ -3,7 +3,7 @@
 Monitoreo de temperatura y humedad del laboratorio de Sistemas Digitales con una ESP32, una API REST en FastAPI y una base de datos PostgreSQL, todo desplegado con Docker y Docker Compose.
 
 Proyecto de aula de **SD1005 – Sistemas Operativos (2026-II)**, Institución Universitaria Pascual Bravo.
-Autor: Juan Manuel Meneses Zapata.
+Autores: Juan Manuel Meneses Zapata y Santiago Castellón Cano.
 
 ## Problema
 
@@ -170,6 +170,26 @@ docker compose up -d
 ```
 
 Al abrir `http://localhost:8000/api/readings` las lecturas siguen ahí, aunque los contenedores se hayan destruido y creado de nuevo.
+
+## Acceso público (opcional)
+
+El proyecto se evalúa en local, pero se puede publicar el panel en internet mientras los contenedores estén corriendo. Para eso hay un tercer servicio, `tunnel`, que usa la imagen oficial de Cloudflare (`cloudflared`) y crea un túnel HTTPS hacia la API sin abrir puertos en el router.
+
+Está en un *profile* de Compose, así que no arranca con el `up` normal:
+
+```bash
+docker compose --profile public up -d
+docker compose logs tunnel
+```
+
+En los logs aparece una URL del tipo `https://algo-aleatorio.trycloudflare.com`. Ese link abre el mismo panel desde cualquier celular o computador.
+
+- El túnel llega a la API por la red interna (`http://api:8000`), igual que cualquier otro servicio.
+- La URL cambia cada vez que el contenedor se reinicia (túnel rápido, sin cuenta).
+- Solo funciona mientras el PC y los contenedores estén encendidos.
+- Leer datos es público; escribir sigue exigiendo `X-API-Key`.
+
+Para apagarlo sin tocar lo demás: `docker compose --profile public stop tunnel`.
 
 ## Seguridad
 

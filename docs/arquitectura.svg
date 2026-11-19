@@ -2,7 +2,7 @@
 <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
 <rect width="1600" height="1020" fill="#FFFFFF"/>
 <text x="40" y="58" font-size="28" font-weight="700" fill="#0F172A" text-anchor="start">Lab Climate Monitor · Arquitectura de la solución con Docker</text>
-<text x="40" y="88" font-size="15" font-weight="400" fill="#475569" text-anchor="start">SD1005 Sistemas Operativos · Juan Manuel Meneses Zapata · Pascual Bravo 2026-II</text>
+<text x="40" y="88" font-size="15" font-weight="400" fill="#475569" text-anchor="start">SD1005 Sistemas Operativos · Juan Manuel Meneses Zapata y Santiago Castellón Cano · Pascual Bravo 2026-II</text>
 <rect x="30" y="150" width="260" height="470" rx="14" fill="#FFFBEB" stroke="#B45309" stroke-width="2"/>
 <text x="50" y="182" font-size="13" font-weight="700" fill="#B45309" text-anchor="start">HARDWARE</text>
 <rect x="55" y="205" width="210" height="100" rx="14" fill="#FFFFFF" stroke="#B45309" stroke-width="2"/>

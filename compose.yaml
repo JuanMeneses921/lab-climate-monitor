@@ -33,6 +33,18 @@ services:
     networks:
       - lab-net
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: lab-tunnel
+    # Optional: only starts with "docker compose --profile public up -d"
+    profiles: ["public"]
+    command: tunnel --no-autoupdate --protocol http2 --url http://api:8000
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - lab-net
+
 volumes:
   db_data:
 
