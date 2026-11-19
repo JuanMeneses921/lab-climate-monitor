@@ -13,3 +13,7 @@ Thumbs.db
 
 # ESP32 credentials
 firmware/**/secrets.h
+
+# Exported data
+Datos Exel/
+*.csv
