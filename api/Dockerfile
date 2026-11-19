@@ -12,8 +12,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
+# Copy the application code and the dashboard
 COPY main.py .
+COPY static ./static
 
 # Run as a non-root user (security)
 RUN useradd --create-home appuser \

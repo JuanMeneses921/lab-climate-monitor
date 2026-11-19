@@ -1,8 +1,12 @@
+import csv
+import io
 import os
 import secrets
 from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Float, Integer, String, create_engine, select
 from sqlalchemy.orm import Session, declarative_base
@@ -10,6 +14,7 @@ from sqlalchemy.orm import Session, declarative_base
 # Configuration comes from environment variables (never hardcoded secrets)
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/readings.db")
 API_KEY = os.getenv("API_KEY", "")
+STATIC_DIR = Path(__file__).parent / "static"
 
 if DATABASE_URL.startswith("sqlite"):
     os.makedirs("data", exist_ok=True)
@@ -54,13 +59,28 @@ class ReadingOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-app = FastAPI(title="Lab Climate Monitor API", version="1.0.0")
+app = FastAPI(title="Lab Climate Monitor API", version="2.0.0")
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add basic security headers to every response."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 def check_api_key(received_key: str | None) -> None:
     """Reject the request if the API key is missing or wrong."""
     if not API_KEY or not received_key or not secrets.compare_digest(received_key, API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+@app.get("/", include_in_schema=False)
+def dashboard():
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/health")
@@ -95,3 +115,28 @@ def latest_reading():
         if row is None:
             raise HTTPException(status_code=404, detail="No readings yet")
         return ReadingOut.model_validate(row)
+
+
+@app.get("/api/readings/export.csv")
+def export_csv():
+    """Download every reading as a CSV file, oldest first."""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["id", "device_id", "temperature_c", "humidity_pct", "created_at_utc"])
+
+    with Session(engine) as session:
+        query = select(Reading).order_by(Reading.created_at.asc())
+        for row in session.scalars(query):
+            writer.writerow([
+                row.id,
+                row.device_id,
+                row.temperature,
+                row.humidity,
+                row.created_at.isoformat(),
+            ])
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="lab_readings.csv"'},
+    )

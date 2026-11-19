@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab Climate Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --temp:#f97316; --hum:#38bdf8; --ok:#22c55e; --warn:#eab308; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, sans-serif; background:var(--bg); color:var(--text); }
+    main { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+    header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
+    h1 { margin:0; font-size: 1.5rem; }
+    .status { font-size:.9rem; color:var(--muted); }
+    .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; background:var(--warn); }
+    .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin:24px 0; }
+    .card { background:var(--card); border-radius:12px; padding:20px; }
+    .label { color:var(--muted); font-size:.85rem; }
+    .value { font-size:2.4rem; font-weight:700; margin-top:6px; }
+    .temp { color:var(--temp); } .hum { color:var(--hum); }
+    .panel { background:var(--card); border-radius:12px; padding:20px; margin-bottom:24px; }
+    table { width:100%; border-collapse:collapse; font-size:.9rem; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid #334155; }
+    th { color:var(--muted); font-weight:500; }
+    a.btn { color:var(--bg); background:var(--hum); padding:8px 14px; border-radius:8px; text-decoration:none; font-weight:600; font-size:.9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Lab Climate Monitor</h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="status">Cargando...</span></div>
+    </div>
+    <a class="btn" href="/api/readings/export.csv">Descargar CSV</a>
+  </header>
+
+  <section class="cards">
+    <div class="card"><div class="label">Temperatura</div><div class="value temp" id="temp">--</div></div>
+    <div class="card"><div class="label">Humedad</div><div class="value hum" id="hum">--</div></div>
+    <div class="card"><div class="label">Última lectura</div><div class="value" id="last" style="font-size:1.3rem">--</div></div>
+  </section>
+
+  <section class="panel">
+    <canvas id="chart" height="110"></canvas>
+  </section>
+
+  <section class="panel">
+    <table>
+      <thead><tr><th>ID</th><th>Dispositivo</th><th>Temp (°C)</th><th>Humedad (%)</th><th>Hora</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+  const REFRESH_MS = 10000;
+  const STALE_SECONDS = 30;
+
+  const chart = new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: { labels: [], datasets: [
+      { label: "Temperatura (°C)", data: [], borderColor: "#f97316", tension: 0.3, yAxisID: "y" },
+      { label: "Humedad (%)", data: [], borderColor: "#38bdf8", tension: 0.3, yAxisID: "y1" }
+    ]},
+    options: {
+      animation: false,
+      plugins: { legend: { labels: { color: "#e2e8f0" } } },
+      scales: {
+        x:  { ticks: { color: "#94a3b8" } },
+        y:  { position: "left",  ticks: { color: "#f97316" } },
+        y1: { position: "right", ticks: { color: "#38bdf8" }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+
+  function formatTime(isoString) {
+    return new Date(isoString).toLocaleTimeString("es-CO");
+  }
+
+  // Build table rows with textContent (never innerHTML) to avoid injecting data as HTML
+  function renderTable(readings) {
+    const body = document.getElementById("rows");
+    body.replaceChildren();
+    readings.slice(0, 10).forEach(r => {
+      const tr = document.createElement("tr");
+      [r.id, r.device_id, r.temperature.toFixed(1), r.humidity.toFixed(0), formatTime(r.created_at)]
+        .forEach(value => {
+          const td = document.createElement("td");
+          td.textContent = value;
+          tr.appendChild(td);
+        });
+      body.appendChild(tr);
+    });
+  }
+
+  async function refresh() {
+    try {
+      const response = await fetch("/api/readings?limit=60");
+      const readings = await response.json();
+
+      if (readings.length === 0) {
+        document.getElementById("status").textContent = "Sin lecturas todavía";
+        return;
+      }
+
+      const latest = readings[0];
+      const ageSeconds = (Date.now() - new Date(latest.created_at)) / 1000;
+      const online = ageSeconds < STALE_SECONDS;
+
+      document.getElementById("temp").textContent = latest.temperature.toFixed(1) + " °C";
+      document.getElementById("hum").textContent = latest.humidity.toFixed(0) + " %";
+      document.getElementById("last").textContent = formatTime(latest.created_at);
+      document.getElementById("status").textContent = online ? "ESP32 en línea" : "Sin datos recientes de la ESP32";
+      document.getElementById("dot").style.background = online ? "var(--ok)" : "var(--warn)";
+
+      const ordered = [...readings].reverse();
+      chart.data.labels = ordered.map(r => formatTime(r.created_at));
+      chart.data.datasets[0].data = ordered.map(r => r.temperature);
+      chart.data.datasets[1].data = ordered.map(r => r.humidity);
+      chart.update();
+
+      renderTable(readings);
+    } catch (error) {
+      document.getElementById("status").textContent = "No se pudo conectar con la API";
+      document.getElementById("dot").style.background = "#ef4444";
+    }
+  }
+
+  refresh();
+  setInterval(refresh, REFRESH_MS);
+</script>
+</body>
+</html>
