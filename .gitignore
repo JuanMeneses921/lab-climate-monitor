@@ -10,3 +10,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# ESP32 credentials
+firmware/**/secrets.h
