@@ -17,3 +17,6 @@ firmware/**/secrets.h
 # Exported data
 Datos Exel/
 *.csv
+
+# Temporary files
+_to_delete/
